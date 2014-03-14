@@ -81,10 +81,10 @@ def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=No
         atom_indices = ensure_type(np.asarray(atom_indices), dtype=np.int, ndim=1, name='atom_indices')
         if not np.all((atom_indices >= 0) * (atom_indices < target.xyz.shape[1]) * (atom_indices < reference.xyz.shape[1])):
             raise ValueError("atom_indices must be valid positive indices")
-    if permute_indices is None:
-        permute_indices = [atom_indices]
-    else:
-        permute_indices = [ensure_type(np.asarray(group), dtype=np.int, ndim=1, name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
+    #if permute_indices is None:
+    #    permute_indices = [atom_indices]
+    #else:
+    #    permute_indices = [ensure_type(np.asarray(group), dtype=np.int, ndim=1, name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
 
     assert (target.xyz.ndim == 3) and (reference.xyz.ndim == 3) and (target.xyz.shape[2]) == 3 and (reference.xyz.shape[2] == 3)
     if not (target.xyz.shape[1]  == reference.xyz.shape[1]):
@@ -94,7 +94,9 @@ def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=No
         raise ValueError("Cannot calculate RMSD of frame %d: reference has "
                          "only %d frames." % (frame, reference.xyz.shape[0]))
 
-
+    for i in prange(target_n_frames, nogil=True):
+        msd = msd_atom_major(n_atoms, n_atoms, &target_xyz[i, 0, 0], &ref_xyz_frame[0, 0], target_g[i], ref_g, 0, NULL)
+        distances[i] = sqrtf(msd)
 
 def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target,
                         np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] reference,
