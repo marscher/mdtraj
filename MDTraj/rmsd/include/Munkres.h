@@ -54,8 +54,8 @@ private:
 	int smallest;
 	int largest;
 
-	int zi;
-	int zj;
+    // int zi;
+    // int zj;
 
 
 	void step0();

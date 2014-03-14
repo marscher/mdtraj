@@ -416,7 +416,7 @@ double Munkres::min_uncovered() {
 int Munkres::find_starred_zero_in_col(int col) {
 	// given a column find a starred zero in it, otherwise return -1
 	for (int i = 0; i < rows; i++) {
-		if ((starred[i][col] == true))
+		if (starred[i][col] == true)
 			return i;
 	}
 	return -1;
@@ -425,7 +425,7 @@ int Munkres::find_starred_zero_in_col(int col) {
 int Munkres::find_primed_zero_in_row(int row) {
 	// given a row, find if it has a primed zero in it, otherwise return -1
 	for (int i = 0; i < cols; i++) {
-		if ((primed[row][i] == true))
+		if (primed[row][i] == true)
 			return i;
 	}
 	return -1;

@@ -32,13 +32,19 @@ import scipy.spatial.distance
 cimport numpy as np
 from cpython cimport bool
 from cython.parallel cimport prange
-
 np.import_array()
 
+cdef extern float msd_atom_major(int nrealatoms, int npaddedatoms,  float* a,
+    float* b, float G_a, float G_b, int computeRot, float rot[9]) nogil
+cdef extern float rot_atom_major(const int n_atoms, float* a, const float rot[9]) nogil
+cdef extern void inplace_center_and_trace_atom_major(float* coords, float* traces,
+    const int n_frames, const int n_atoms) nogil
 cdef extern from "include/Munkres.h":
     cdef cppclass Munkres:
         Munkres()
         void solve(double* icost, int* answer, int m, int n)
+
+
 
 def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=None,
            bool parallel=True):
@@ -70,23 +76,40 @@ def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=No
         A list of groups of permutable atoms. Each element in permute_indices
         is an array of indices containing atoms whose labels can be mutually
         exchanged within the group. If none, all points in atom_indices
-        will be allowed each other.
+        will be allowed each other. permute_indices must be a subset of
+        atom_indices.
     parallel : bool
         Use OpenMP to calculate each of the RMSDs in parallel over
         multiple cores.
     """
+    # validate atom_indices
     if atom_indices is None:
         atom_indices = np.arange(reference.n_atoms, dtype=np.int)
     else:
-        atom_indices = ensure_type(np.asarray(atom_indices), dtype=np.int, ndim=1, name='atom_indices')
+        atom_indices = ensure_type(np.unique(atom_indices), dtype=np.int,
+                                   ndim=1, name='atom_indices')
         if not np.all((atom_indices >= 0) * (atom_indices < target.xyz.shape[1]) * (atom_indices < reference.xyz.shape[1])):
             raise ValueError("atom_indices must be valid positive indices")
-    #if permute_indices is None:
-    #    permute_indices = [atom_indices]
-    #else:
-    #    permute_indices = [ensure_type(np.asarray(group), dtype=np.int, ndim=1, name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
 
-    assert (target.xyz.ndim == 3) and (reference.xyz.ndim == 3) and (target.xyz.shape[2]) == 3 and (reference.xyz.shape[2] == 3)
+    # validate permute_indices
+    if permute_indices is None:
+        permute_indices = [atom_indices]
+    else:
+        permute_indices = [ensure_type(np.unique(group), dtype=np.int, ndim=1,
+            name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
+    for pgroup in permute_indices:
+        if len(np.setdiff1d(pgroup, atom_indices)) > 0:
+            raise ValueError('The elements in each permute group must be a subset of atom_indices')
+
+    # these are the indices of the permute atoms inside the coords array after
+    # selecting only the atom indices.
+    # i.e. [xyz[atom_indices][i] for in permute_indices_rel]
+    permute_indices_rel = [np.searchsorted(atom_indices, pgroup) for pgroup in permute_indices]
+    distinguishable_indices = np.setdiff1d(atom_indices, np.concatenate(permute_indices_rel))
+
+    # validate target.xyz and reference.xyz
+    assert (target.xyz.ndim == 3) and (reference.xyz.ndim == 3) and \
+           (target.xyz.shape[2]) == 3 and (reference.xyz.shape[2] == 3)
     if not (target.xyz.shape[1]  == reference.xyz.shape[1]):
         raise ValueError("Input trajectories must have same number of atoms. "
                          "found %d and %d." % (target.xyz.shape[1], reference.xyz.shape[1]))
@@ -94,9 +117,49 @@ def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=No
         raise ValueError("Cannot calculate RMSD of frame %d: reference has "
                          "only %d frames." % (frame, reference.xyz.shape[0]))
 
-    for i in prange(target_n_frames, nogil=True):
-        msd = msd_atom_major(n_atoms, n_atoms, &target_xyz[i, 0, 0], &ref_xyz_frame[0, 0], target_g[i], ref_g, 0, NULL)
-        distances[i] = sqrtf(msd)
+    # get the all the coords in atom_indices in target and ref.
+    # center them and compute the g values
+    cdef int i
+    cdef float msd, ref_g
+    cdef np.ndarray[ndim=3, dtype=np.float32_t] target_xyz
+    cdef np.ndarray[ndim=2, dtype=np.float32_t] ref_xyz_frame
+    cdef np.ndarray[ndim=1, dtype=np.float32_t] target_g
+    cdef int target_n_frames = target.xyz.shape[0]
+    cdef int n_atoms = len(atom_indices)
+    target_g = np.empty(target_n_frames, dtype=np.float32)
+    target_xyz = np.asarray(target.xyz[:, atom_indices, :], order='C', dtype=np.float32)
+    ref_xyz_frame = np.asarray(reference.xyz[frame, atom_indices, :], order='C', dtype=np.float32)
+    inplace_center_and_trace_atom_major(&target_xyz[0,0,0], &target_g[0], target_n_frames, n_atoms)
+    inplace_center_and_trace_atom_major(&ref_xyz_frame[0, 0], &ref_g, 1, n_atoms)
+
+    # get only the distinguishable atoms in target and ref, center them
+    # and compute the g values
+    cdef float ref_g_distinguishable
+    cdef np.ndarray[ndim=3, dtype=np.float32_t] target_xyz_distinguishable
+    cdef np.ndarray[ndim=2, dtype=np.float32_t] ref_xyz_frame_distinguishable
+    cdef np.ndarray[ndim=1, dtype=np.float32_t] target_g_distinguishable
+    cdef int n_atoms_distinguishable = len(distinguishable_indices)
+    target_g_distinguishable = np.empty(target_n_frames, dtype=np.float32)
+    target_xyz_distinguishable = np.asarray(target.xyz[:, distinguishable_indices, :], order='C', dtype=np.float32)
+    ref_xyz_frame_distinguishable = np.asarray(reference.xyz[frame, distinguishable_indices, :], order='C', dtype=np.float32)
+    inplace_center_and_trace_atom_major(&target_xyz_distinguishable[0,0,0], &target_g_distinguishable[0], target_n_frames, n_atoms)
+    inplace_center_and_trace_atom_major(&ref_xyz_frame_distinguishable[0, 0], &ref_g_distinguishable, 1, n_atoms)
+
+    cdef np.ndarray[ndim=2, dtype=np.float32_t] rot = np.empty((3,3), dtype=np.float32)
+    for i in range(target_n_frames):
+        # compute rotation matrix on distinguishable atoms
+        msd_atom_major(
+            n_atoms_distinguishable, n_atoms_distinguishable,
+            &target_xyz_distinguishable[i, 0, 0],
+            &ref_xyz_frame_distinguishable[0, 0],
+            target_g_distinguishable[i], ref_g_distinguishable,
+            1, &rot[0,0])
+
+        # apply rot to all the atoms
+        rot_atom_major(n_atoms, &target_xyz[i, 0, 0], &rot[0, 0])
+
+        # compute the permutations
+        mapping = compute_permutation(target_xyz, ref_xyz_frame, permute_indices_rel)
 
 def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target,
                         np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] reference,
