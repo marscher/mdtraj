@@ -27,12 +27,18 @@
 import cython
 import numpy as np
 from mdtraj.utils import ensure_type
+import scipy.spatial.distance
 
 cimport numpy as np
 from cpython cimport bool
 from cython.parallel cimport prange
 
 np.import_array()
+
+cdef extern from "include/Munkres.h":
+    cdef cppclass Munkres:
+        Munkres()
+        void solve(double* icost, int* answer, int m, int n)
 
 def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=None,
            bool parallel=True):
@@ -79,7 +85,7 @@ def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=No
         permute_indices = [atom_indices]
     else:
         permute_indices = [ensure_type(np.asarray(group), dtype=np.int, ndim=1, name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
-    
+
     assert (target.xyz.ndim == 3) and (reference.xyz.ndim == 3) and (target.xyz.shape[2]) == 3 and (reference.xyz.shape[2] == 3)
     if not (target.xyz.shape[1]  == reference.xyz.shape[1]):
         raise ValueError("Input trajectories must have same number of atoms. "
@@ -118,14 +124,67 @@ def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target,
     -------
     mapping :
     """
-    if target.shape[0] != reference.shape[0] or target.shape[1] != reference.shape[1]
+    if target.shape[0] != reference.shape[0] or target.shape[1] != reference.shape[1]:
         raise ValueError('target (shape=(%d,%d)) and reference (shape=%d, %d) must have the saame dimensions' % (
             target.shape[0], target.shape[1], reference.shape[0], reference.shape[1]))
+
     if permute_indices is None:
-        permute_indices = [np.arange(len(target))
+        permute_indices = [np.arange(len(target))]
     else:
         permute_indices = [ensure_type(np.asarray(group), dtype=np.int, ndim=1, name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
-    
-    
-    
 
+    cdef int i, j
+    cdef int n_atoms = target.shape[0]
+    cdef np.ndarray[ndim=2, dtype=np.double_t, mode='c'] distance
+    cdef np.ndarray[ndim=2, dtype=np.int32_t, mode='c'] mask
+
+
+    # use only the distances in permute_indices actually... (set others to inf)
+    distance = scipy.spatial.distance.cdist(target, reference)
+
+    mask = _munkres(distance)
+    mapping = np.empty(n_atoms, dtype=np.int32)
+
+    for i in range(n_atoms):
+        for j in range(n_atoms):
+            if mask[j, i]:
+                mapping[i] = j
+                break
+
+
+    return mapping
+
+
+@cython.boundscheck(False)
+def _munkres(np.ndarray[np.double_t, ndim=2, mode="c"] A not None):
+    """_munkres(A)
+
+    Calculate the minimum cost assignment of a cost matrix, A
+
+    Parameters
+    ----------
+    A : np.ndarray, dtype=np.double, ndim=2
+
+    Returns
+    -------
+    assignments : np.ndarray, ndim=2, dtype=int32
+        Boolean array with shape equal to the shape of A. assignments[i,j] == 1
+        for an assignment, and 0 for a non-assignment
+
+    Examples
+    -------
+    >>> _munkres(np.array([[7, 4, 3], [6, 8, 5], [9, 4, 4]], dtype=np.double))
+    [[0 0 1],
+     [1 0 0],
+     [0 1 0]]
+    """
+    cdef int x = A.shape[0]
+    cdef int y = A.shape[1]
+    cdef np.ndarray[ndim=2, dtype=np.int32_t, mode='c'] rslt
+
+    rslt = np.zeros(shape=(x,y), dtype=np.int32, order='c')
+    cdef Munkres* munk = new Munkres()
+    munk.solve(<double *> A.data, <int *> rslt.data, x, y)
+    del munk
+
+    return rslt

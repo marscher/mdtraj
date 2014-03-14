@@ -278,15 +278,17 @@ def rmsd_extensions():
                      libraries=compiler_libraries)
 
     lprmsd = Extension('mdtraj._lprmsd',
-                     sources=[
-                         'MDTraj/rmsd/src/theobald_rmsd.c',
-                         'MDTraj/rmsd/src/rotation.c',
-                         'MDTraj/rmsd/src/center.c',
-                         'MDTraj/rmsd/_lprmsd.pyx'],
-                     include_dirs=[
-                         'MDTraj/rmsd/include', numpy.get_include()],
-                     extra_compile_args=compiler_args,
-                     libraries=compiler_libraries)
+                       sources=[
+                           'MDTraj/rmsd/src/theobald_rmsd.c',
+                           'MDTraj/rmsd/src/rotation.c',
+                           'MDTraj/rmsd/src/center.c',
+                           'MDTraj/rmsd/src/Munkres.cpp',
+                           'MDTraj/rmsd/_lprmsd.pyx'],
+                       language='c++',
+                       include_dirs=[
+                           'MDTraj/rmsd/include', numpy.get_include()],
+                       extra_compile_args=compiler_args,
+                       libraries=compiler_libraries)
     return rmsd, lprmsd
 
 
