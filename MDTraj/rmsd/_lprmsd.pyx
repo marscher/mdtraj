@@ -122,7 +122,9 @@ def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target,
 
     Returns
     -------
-    mapping :
+    mapping : np.ndarray, ndim=1, dtype=int
+        Mapping array such that distance(reference[mapping], target) is minimized over all
+        possible mappings.
     """
     if target.shape[0] != reference.shape[0] or target.shape[1] != reference.shape[1]:
         raise ValueError('target (shape=(%d,%d)) and reference (shape=%d, %d) must have the saame dimensions' % (
@@ -147,10 +149,10 @@ def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target,
 
     for i in range(n_atoms):
         for j in range(n_atoms):
-            if mask[j, i]:
+            if mask[i, j]:
+                # i in reference is j in target
                 mapping[i] = j
                 break
-
 
     return mapping
 
