@@ -90,23 +90,23 @@ def lprmsd(target, reference, int frame=0, atom_indices=None, permute_indices=No
 
 
 
-def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target_xyz,
-                        np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] reference_xyz,
-                        list permute_indices=None):
-    """compute_permutation(target_xyz, reference_xyz, permute_indices)
+def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target,
+                        np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] reference,
+                        permute_indices=None):
+    """compute_permutation(target, reference, permute_indices)
 
     Solve the assignment problem, finding the bijection of indices that minimizes
-    the sum of the euclidean distance between the all points in `target_xyz`
-    and `reference_xyz`.
+    the sum of the euclidean distance between the all points in `target`
+    and `reference`.
 
-    This routine does not rotate either the coordinates in `target_xyz` or
-    `reference_xyz`.
+    This routine does not rotate either the coordinates in `target` or
+    `reference`.
 
     Parameters
     ----------
-    target_xyz : np.ndarray, ndim=2
+    target : np.ndarray, ndim=2
         The cartesian coordinates of a set of atoms -- a single conformation
-    reference_xyz : np.ndarray, ndim=2
+    reference : np.ndarray, ndim=2
         The cartesian coordinates of a set of atoms -- a single conformation
     permute_indices : list of array_like, or None
         A list of groups of permutable atoms. Each element in permute_indices
@@ -118,9 +118,14 @@ def compute_permutation(np.ndarray[ndim=2, dtype=np.float32_t, mode='c'] target_
     -------
     mapping :
     """
+    if target.shape[0] != reference.shape[0] or target.shape[1] != reference.shape[1]
+        raise ValueError('target (shape=(%d,%d)) and reference (shape=%d, %d) must have the saame dimensions' % (
+            target.shape[0], target.shape[1], reference.shape[0], reference.shape[1]))
     if permute_indices is None:
-        raise ValueError('permute_indices is a required argument')
+        permute_indices = [np.arange(len(target))
     else:
         permute_indices = [ensure_type(np.asarray(group), dtype=np.int, ndim=1, name='permute_indices[%d]' % i) for i, group in enumerate(permute_indices)]
-
     
+    
+    
+
