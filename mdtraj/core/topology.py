@@ -1126,6 +1126,7 @@ class Chain(object):
     atoms : generator
         Iterator over all Atoms in the Chain.
     """
+    __slots__ = ('index', 'topology', '_residues')
 
     def __init__(self, index, topology):
         """Construct a new Chain.  You should call add_chain() on the Topology instead of calling this directly."""
@@ -1237,6 +1238,7 @@ class Residue(object):
     segment_id : str, optional
         A label for the segment to which this residue belongs
     """
+    __slots__ = ('name', 'index', 'chain', 'resSeq', 'segment_id', '_atoms')
 
     def __init__(self, name, index, chain, resSeq, segment_id=''):
         """Construct a new Residue.  You should call add_residue()
@@ -1361,6 +1363,8 @@ class Atom(object):
         The serial number from the PDB specification. Unlike index,
         this may not be contiguous or 0-indexed.
     """
+
+    __slots__ = ('name', 'element', 'index', 'residue', 'serial')
 
     def __init__(self, name, element, index, residue, serial=None):
         """Construct a new Atom.  You should call add_atom() on the Topology instead of calling this directly."""
