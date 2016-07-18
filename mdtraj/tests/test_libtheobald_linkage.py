@@ -1,39 +1,48 @@
 import os.path
 import tempfile
-#from distutils.core import Extension
-#from distutils.dist import Distribution
+
 from setuptools import Distribution, Extension
 
 import mdtraj as md
 
+pyx_src = """
+cdef extern from "center.h":
+    void inplace_center_and_trace_atom_major(float* coords, float* traces,
+    const int n_frames, const int n_atoms)
+
+cdef extern from "theobald_rmsd.h":
+    float msd_atom_major(const int nrealatoms, const int npaddedatoms,
+                     const float* a, const float* b, const float G_a, const float G_b,
+                     int computeRot, float rot[9]);
+
+def test():
+    cdef float* x;
+    cdef float* y;
+    cdef float z;
+    x=NULL; y=NULL; z=0;
+    inplace_center_and_trace_atom_major(x, y, 0, 0);
+    msd_atom_major(0 ,0, x, y, z, z, 0, x);
+
+"""
 
 def test_linkage_libtheobald():
+    try:
+        from Cython.Build import cythonize
+    except ImportError:
+        import warnings
+        warnings.warn("test_linkage_libtheobald skipped because Cython is missing.")
+        return
+
     work_dir = tempfile.mkdtemp()
-    src = os.path.join(work_dir, "test.c")
+    src = os.path.join(work_dir, "test.pyx")
     try:
         with open(src, 'w') as f:
-            f.write(""" #include <theobald_rmsd.h>
-            #include <center.h>
-            int main(int argc, char** argv) {
-                float* x, y;
-                float z;
-                x=0; y=0; z=0;
-                inplace_center_and_trace_atom_major(x, &y, 0, 0);
-                /// float msd_atom_major(const int nrealatoms, const int npaddedatoms,
-                  //   const float* a, const float* b, const float G_a, const float G_b,
-                //     int computeRot, float rot[9]);
-                msd_atom_major(0 ,0, x, &y, z, z, 0, x);
-                return 0;
-            } """)
+            f.write(pyx_src)
         capi = md.capi()
-        ##
-        import warnings
-        warnings.warn("lib directory: %s " % os.listdir(capi['lib_dir']))
-        ##
         ext = Extension(work_dir + '.test_theobald_linkage', [src],
                         include_dirs=[capi['include_dir']],
                         library_dirs=[capi['lib_dir']])
-        dist_args = {'ext_modules': [ext]}
+        dist_args = {'ext_modules': cythonize([ext])}
         dist = Distribution(dist_args)
         dist.run_command('build_ext')
     finally:
