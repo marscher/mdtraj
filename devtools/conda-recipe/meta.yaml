@@ -40,7 +40,7 @@ test:
     - scikit-learn
 
   commands:
-    - nosetests mdtraj -v -s
+    - nosetests  mdtraj.tests.test_libtheobald_linkage -v -s #mdtraj -v -s
     - cd {{SRC_DIR}}
     - cd examples
     - nosetests test_examples.py -v -s # [not (win32 or (win and py2k))]

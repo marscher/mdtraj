@@ -34,7 +34,7 @@ def test_linkage_libtheobald():
         return
 
     work_dir = tempfile.mkdtemp()
-    src = os.path.join(work_dir, "test.pyx")
+    src = os.path.join(work_dir, "test_theobald_linkage.pyx")
     try:
         with open(src, 'w') as f:
             f.write(pyx_src)
