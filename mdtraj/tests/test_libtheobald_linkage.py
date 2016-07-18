@@ -26,6 +26,10 @@ def test_linkage_libtheobald():
                 return 0;
             } """)
         capi = md.capi()
+        ##
+        import warnings
+        warnings.warn("lib directory: %s " % os.listdir(capi['lib_dir']))
+        ##
         ext = Extension(work_dir + '.test_theobald_linkage', [src],
                         include_dirs=[capi['include_dir']],
                         library_dirs=[capi['lib_dir']])
