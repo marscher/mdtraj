@@ -1,7 +1,8 @@
 import os.path
 import tempfile
-from distutils.core import Extension
-from distutils.dist import Distribution
+#from distutils.core import Extension
+#from distutils.dist import Distribution
+from setuptools import Distribution, Extension
 
 import mdtraj as md
 
