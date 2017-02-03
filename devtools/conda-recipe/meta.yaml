@@ -12,6 +12,7 @@ requirements:
     - python
     - cython
     - numpy x.x
+    - msinttypes #  [win]
     - setuptools
     - zlib
 
