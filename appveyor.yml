@@ -7,14 +7,9 @@ environment:
     PYTHONUNBUFFERED: 1
 
   matrix:
-    - PYTHON: "C:\\Miniconda3"
-      CONDA_PY: "35"
+    - PYTHON: "C:\\Miniconda"
+      CONDA_PY: "27"
       CONDA_NPY: "1.10"
-
-    - PYTHON: "C:\\Miniconda3-x64"
-      CONDA_PY: "35"
-      CONDA_NPY: "1.10"
-      ARCH: "64"
 
 install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
