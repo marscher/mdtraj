@@ -133,6 +133,7 @@ def format_extensions():
                     define_macros=[('USE_ZLIB', 1)],
                     library_dirs=zlib_library_dirs,
                     libraries=['z'],
+                    language='c++',
                     )
 
     dcd = Extension('mdtraj.formats.dcd',
