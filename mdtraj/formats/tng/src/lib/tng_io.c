@@ -4694,7 +4694,8 @@ static tng_function_status tng_gzip_uncompress(const tng_trajectory_t tng_data,
     Bytef *dest;
     unsigned long stat;
     (void)tng_data;
-    uLongf new_len = uncompressed_len;
+    uLongf new_len;
+    new_len = uncompressed_len;
 
     dest = malloc(uncompressed_len);
     if(!dest)
